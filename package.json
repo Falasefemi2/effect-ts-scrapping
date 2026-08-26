@@ -1,0 +1,31 @@
+{
+  "name": "data-ingestion",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.10",
+    "@effect/tsgo": "^0.37.0",
+    "@oxlint/plugins": "1.80.0",
+    "@types/bun": "latest",
+    "oxlint": "1.80.0"
+  },
+  "scripts": {
+    "prepare": "effect-tsgo patch",
+    "start": "bun run index.ts",
+    "typecheck": "effect-tsgo diagnostics --project tsconfig.json --severity error",
+    "lint": "oxlint",
+    "format": "biome format --write .",
+    "format:check": "biome format ."
+  },
+  "peerDependencies": {
+    "typescript": "^7"
+  },
+  "dependencies": {
+    "@effect/platform-bun": "4.0.0-rc.112",
+    "cheerio": "^1.2.0",
+    "dotenv": "^17.4.2",
+    "effect": "^4.0.0-rc.112",
+    "puppeteer": "^25.9.0"
+  }
+}
