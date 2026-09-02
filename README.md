@@ -1,30 +1,56 @@
-# data-ingestion
+# effect-ts-scrapping
 
-A web scraping pipeline built on Effect v4 that uses Puppeteer to load JavaScript-rendered pages and extract structured data. Designed to run behind Bright Data's rotating residential proxy, which handles IP rotation and CAPTCHA solving transparently.
+A production-ready web scraping pipeline built on Effect v4 that uses Puppeteer to load JavaScript-rendered pages and extract structured data. Designed to run behind Bright Data's rotating residential proxy for robust, scalable scraping.
+
+## Features
+
+✨ **Effect-TS Framework**: Functional, type-safe error handling and dependency injection  
+🔄 **Automatic Retry Logic**: Smart retry policies for transient failures  
+🌍 **Proxy Support**: Seamless integration with Bright Data rotating proxies  
+🔐 **Type Safety**: Full TypeScript support with schema validation  
+⚡ **Bun Runtime**: Fast execution with Bun.js  
+🛠️ **Production Ready**: Comprehensive error handling and logging  
 
 ## How it works
 
-The pipeline has three layers:
+The pipeline is organized into three main layers:
 
-1. **Config** (`src/config.ts`) -- reads environment variables via Effect's `Config` module and packages them into a typed service. Bright Data credentials are optional; when absent, scraping runs without a proxy.
+1. **Config** (`src/config.ts`)
+   - Reads and validates environment variables
+   - Provides a typed `EnvConfig` service
+   - Bright Data credentials are optional
 
-2. **Browser** (`src/browser.ts`) -- manages the Puppeteer lifecycle. Opens a headless Chrome instance, authenticates against the Bright Data proxy if configured, navigates to the target URL, and returns the raw HTML. Navigation failures are classified by HTTP status (429 rate limit, 403 IP block, timeouts) so the retry policy can distinguish transient errors from permanent ones.
+2. **Browser** (`src/browser.ts`)
+   - Manages Puppeteer lifecycle (launch, authentication, navigation)
+   - Handles proxy authentication if Bright Data credentials are provided
+   - Manages page creation and cleanup
 
-3. **Scraper** (`src/scraper.ts`) -- parses the HTML with Cheerio, extracts the page title and all non-empty `<span>` text nodes, and validates the result against an Effect `Schema`. Includes exponential backoff with jitter (starting at 1 second, up to 3 retries) and a 100ms pacing delay between attempts.
+3. **Scraper** (`src/scraper.ts`)
+   - Parses HTML with Cheerio
+   - Extracts page title and text content
+   - Validates results against Effect Schema
+   - Implements retry policies for resilience
 
-The entry point wires these layers together using Effect's `Layer.provide` and runs the program against the Bun runtime.
+The entry point (`index.ts`) wires these layers using Effect's `Layer.provide` and runs against the Bun runtime.
 
 ## Setup
 
-Requires [Bun](https://bun.sh) and Node.js (Puppeteer downloads its own Chromium).
+### Requirements
+- [Bun](https://bun.sh) (v1.0+)
+- Node.js (Puppeteer downloads its own Chromium)
+- Git
+
+### Installation
 
 ```bash
+# Clone the repository
+git clone https://github.com/samuelfemi/effect-ts-scrapping.git
+cd effect-ts-scrapping
+
+# Install dependencies
 bun install
-```
 
-Copy the environment template and fill in your credentials if you want proxy support:
-
-```bash
+# Copy environment template
 cp .env.example .env
 ```
 
@@ -37,46 +63,78 @@ cp .env.example .env
 | `BRIGHT_DATA_ZONE` | No | -- | Bright Data proxy zone |
 | `BRIGHT_DATA_PASSWORD` | No | -- | Bright Data password |
 
-When all three Bright Data variables are set, requests are routed through `brd.superproxy.io:33335`. Otherwise the browser connects directly.
+**Note**: When all three Bright Data variables are set, requests route through `brd.superproxy.io:33335`. Otherwise, the browser connects directly.
 
 ## Usage
 
+### Quick Start
+
 ```bash
-bun run index.ts
+bun run start
 ```
 
-The output is a JSON object with the page title, an array of extracted text spans, and the source URL.
+The output is a JSON object containing:
+- Page title
+- Array of extracted text spans
+- Source URL
 
-## Project structure
+### Example Output
+
+```json
+{
+  "title": "Quotes to Scrape",
+  "spans": ["Quote text 1", "Quote text 2"],
+  "url": "https://quotes.toscrape.com/js/"
+}
+```
+
+## Project Structure
 
 ```
-src/
-  config.ts    -- EnvConfig service and layer
-  errors.ts    -- tagged error types (NetworkError, TimeoutError, etc.)
-  browser.ts   -- Puppeteer adapter with proxy support
-  scraper.ts   -- Scraper service, HTML parsing, retry policy
-index.ts       -- entry point, layer wiring
+effect-ts-scrapping/
+├── src/
+│   ├── config.ts       # Configuration service and environment handling
+│   ├── errors.ts       # Tagged error types
+│   ├── browser.ts      # Puppeteer adapter with proxy support
+│   └── scraper.ts      # Scraper service with retry logic
+├── tools/
+│   └── oxlint/         # Custom linting rules
+├── index.ts            # Entry point
+├── package.json        # Dependencies
+├── tsconfig.json       # TypeScript configuration
+├── biome.json          # Code formatting config
+└── oxlint.config.ts    # Linting configuration
 ```
 
 ## Scripts
 
 | Command | Description |
 |---|---|
-| `bun run start` | Run the pipeline |
+| `bun run start` | Run the scraper pipeline |
 | `bun run typecheck` | Type-check with effect-tsgo |
-| `bun run lint` | Lint with oxlint |
-| `bun run format` | Format with Biome |
-| `bun run format:check` | Check formatting without writing |
+| `bun run lint` | Lint with Oxlint |
+| `bun run format` | Format code with Biome |
+| `bun run format:check` | Check formatting without modifying files |
 
-## Error types
+## Error Handling
 
-All errors extend Effect's `Schema.TaggedError`, so they carry a discriminant tag that pattern matching can switch on:
+All errors extend Effect's `Schema.TaggedError`, enabling safe pattern matching:
 
-- `NetworkError` -- HTTP 4xx/5xx responses other than 429 and 403
-- `TimeoutError` -- navigation exceeded the configured timeout
-- `RateLimitError` -- HTTP 429 response
-- `IPBlockError` -- HTTP 403 response (IP blocked by the target)
-- `BrowserError` -- Puppeteer launch, page creation, or content extraction failures
-- `ParseError` -- HTML extraction or schema validation failure (not retried)
+- **NetworkError** — HTTP 4xx/5xx responses (except 429, 403)
+- **TimeoutError** — Navigation timeout exceeded
+- **RateLimitError** — HTTP 429 response
+- **IPBlockError** — HTTP 403 response (IP blocked)
+- **BrowserError** — Puppeteer launch or page creation failures
+- **ParseError** — HTML extraction or schema validation failure
 
+## Contributing
 
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for development guidelines.
+
+## Troubleshooting
+
+Encounter issues? Check [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) for solutions to common problems.
+
+## License
+
+MIT
